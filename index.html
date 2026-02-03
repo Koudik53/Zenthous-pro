@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zenthous Pro ERP | Professional Analytics Suite</title>
+    
+    <!-- PWA Setup -->
+    <meta name="theme-color" content="#4F46E5">
+    <link rel="manifest" id="pwa-manifest">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        :root { --primary: #4F46E5; --sidebar-bg: #0F172A; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F8FAFC; color: #1E293B; margin: 0; overflow-x: hidden; }
+
+        /* Navigation Logic */
+        #sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 45; display: none; backdrop-filter: blur(4px); }
+        #sidebar-overlay.active { display: block; }
+        .sidebar { width: 280px; height: 100vh; background: var(--sidebar-bg); color: white; position: fixed; left: 0; top: 0; z-index: 50; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .main-content { margin-left: 280px; min-height: 100vh; transition: 0.3s ease; }
+        @media (max-width: 1024px) { .sidebar { transform: translateX(-100%); } .sidebar.active { transform: translateX(0); } .main-content { margin-left: 0; } }
+
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 14px 20px; color: #94A3B8; cursor: pointer; border-radius: 12px; margin: 4px 15px; transition: 0.3s; font-size: 14px; }
+        .nav-item.active { background: var(--primary); color: white; box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3); }
+
+        /* Professional Analytics Cards */
+        .analytics-card { background: white; border: 1px solid #E2E8F0; border-radius: 24px; padding: 24px; transition: 0.3s; height: 100%; }
+        .analytics-card:hover { border-color: var(--primary); }
+
+        /* Templates */
+        .preview-scroll-container { width: 100%; overflow-x: auto; padding: 20px; display: flex; justify-content: center; background: #cbd5e1; }
+        #invoice-capture { width: 210mm; min-height: 297mm; background: white; position: relative; flex-shrink: 0; overflow: hidden; }
+        .tpl-1 { border-top: 15px solid var(--primary); padding: 15mm; }
+        .tpl-2 { border: 1px solid #ddd; padding: 15mm; text-align: center; }
+        .tpl-3 { border-left: 10px solid #000; padding: 15mm; }
+        .tpl-4 { padding: 15mm; background: #fafafa; }
+        .tpl-5 { padding: 0; border-bottom: 15px solid var(--primary); }
+        .tpl-5 .top-banner { background: #1e293b; color: white; padding: 15mm; }
+
+        .input-field { width: 100%; padding: 12px 16px; border-radius: 12px; border: 1px solid #E2E8F0; background: #F9FAFB; outline: none; font-size: 14px; }
+        .status-paid { @apply bg-green-100 text-green-600 px-3 py-1 rounded-full text-[10px] font-black uppercase; }
+        .status-pending { @apply bg-amber-100 text-amber-600 px-3 py-1 rounded-full text-[10px] font-black uppercase; }
+
+        @media (max-width: 768px) {
+            #invoice-capture { transform: scale(0.45); transform-origin: top center; margin-bottom: -150mm; }
+            .preview-scroll-container { height: 550px; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar" class="sidebar">
+        <div class="p-8 flex items-center gap-3 mb-6">
+            <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg"><i class="fas fa-bolt text-white text-xl"></i></div>
+            <span class="text-xl font-extrabold tracking-tight italic">Zenthous<span class="text-indigo-400">Pro</span></span>
+        </div>
+        <nav>
+            <div onclick="showPage('dashboard', this)" class="nav-item active"><i class="fas fa-chart-pie"></i> Dashboard</div>
+            <div onclick="showPage('billing', this)" class="nav-item"><i class="fas fa-file-invoice-dollar"></i> Create Bill</div>
+            <div onclick="showPage('history', this)" class="nav-item"><i class="fas fa-history"></i> Invoices History</div>
+            <div onclick="showPage('products', this)" class="nav-item"><i class="fas fa-boxes-stacked"></i> Inventory</div>
+            <div onclick="showPage('profile', this)" class="nav-item"><i class="fas fa-user-gear"></i> Account Settings</div>
+            <div onclick="showPage('about', this)" class="nav-item"><i class="fas fa-info-circle"></i> About Us</div>
+        </nav>
+    </aside>
+
+    <div class="main-content">
+        <!-- TOPBAR -->
+        <header class="h-20 bg-white/80 backdrop-blur-md border-b flex items-center justify-between px-6 lg:px-10 sticky top-0 z-40">
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()" class="lg:hidden w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center"><i class="fas fa-bars text-slate-600"></i></button>
+                <h2 id="page-title" class="text-xs font-bold text-slate-400 uppercase tracking-widest">Dashboard</h2>
+            </div>
+            <div class="flex items-center gap-4">
+                <p id="top-biz-name" class="text-xs font-black text-slate-800 uppercase hidden sm:block">Zenthous Pro</p>
+                <div id="top-logo-display" class="w-10 h-10 rounded-full bg-slate-100 border overflow-hidden flex items-center justify-center"></div>
+            </div>
+        </header>
+
+        <div class="p-4 lg:p-10">
+            <!-- PAGE: DASHBOARD -->
+            <section id="page-dashboard" class="page-view space-y-8">
+                <!-- Period Filter -->
+                <div class="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-100">
+                    <h3 class="font-black text-slate-800 text-sm uppercase tracking-widest">Business Analytics</h3>
+                    <div class="flex gap-2">
+                        <button onclick="updateAnalyticsTime('week')" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-indigo-50 text-indigo-600 border border-indigo-100" id="filter-week">Week</button>
+                        <button onclick="updateAnalyticsTime('month')" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-400 border" id="filter-month">Month</button>
+                    </div>
+                </div>
+
+                <!-- Triple Graph Layout -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Graph 1: Revenue Trend -->
+                    <div class="analytics-card">
+                        <h3 class="font-black text-xs text-slate-400 uppercase mb-6 tracking-widest">Revenue Earnings (₹)</h3>
+                        <div class="h-[250px]"><canvas id="revenueChart"></canvas></div>
+                    </div>
+                    <!-- Graph 2: Invoice Creation Volume -->
+                    <div class="analytics-card">
+                        <h3 class="font-black text-xs text-slate-400 uppercase mb-6 tracking-widest">Invoice Volume (Bills)</h3>
+                        <div class="h-[250px]"><canvas id="invoiceChart"></canvas></div>
+                    </div>
+                    <!-- Graph 3: Inventory Stock Distribution -->
+                    <div class="analytics-card lg:col-span-2">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-black text-xs text-slate-400 uppercase tracking-widest">Inventory Health & Movement</h3>
+                            <span id="total-stock-count" class="bg-indigo-600 text-white px-3 py-1 rounded-full text-[10px] font-black">0 Units Total</span>
+                        </div>
+                        <div class="h-[300px]"><canvas id="stockChart"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- Stats Summary Row -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="glass-card p-6 bg-indigo-600 text-white">
+                        <p class="text-[10px] font-black opacity-60 uppercase">Total Revenue</p>
+                        <h2 id="total-revenue" class="text-3xl font-black mt-1">₹0</h2>
+                    </div>
+                    <div class="glass-card p-6 border-amber-200">
+                        <p class="text-slate-400 text-[10px] font-black uppercase">Pending Payment</p>
+                        <h2 id="pending-revenue" class="text-3xl font-black mt-1 text-amber-500">₹0</h2>
+                    </div>
+                    <div class="glass-card p-6 border-slate-200 lg:col-span-2">
+                        <button onclick="downloadReport()" class="w-full h-full flex items-center justify-center gap-3 font-black text-slate-700 hover:text-indigo-600 transition">
+                            <i class="fas fa-file-download"></i> EXPORT BUSINESS DATA (CSV)
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PAGE: BILLING -->
+            <section id="page-billing" class="page-view hidden">
+                <div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+                    <div class="xl:col-span-4 space-y-6">
+                        <div class="glass-card p-6 space-y-4">
+                            <h3 class="font-black text-xs uppercase tracking-widest border-b pb-3">1. Design & Mode</h3>
+                            <div class="grid grid-cols-5 gap-1">
+                                <button onclick="setTemplate('1')" id="t-btn-1" class="h-10 bg-slate-100 rounded-lg text-[10px] font-bold">T1</button>
+                                <button onclick="setTemplate('2')" id="t-btn-2" class="h-10 bg-slate-100 rounded-lg text-[10px] font-bold">T2</button>
+                                <button onclick="setTemplate('3')" id="t-btn-3" class="h-10 bg-slate-100 rounded-lg text-[10px] font-bold">T3</button>
+                                <button onclick="setTemplate('4')" id="t-btn-4" class="h-10 bg-slate-100 rounded-lg text-[10px] font-bold">T4</button>
+                                <button onclick="setTemplate('5')" id="t-btn-5" class="h-10 bg-slate-100 rounded-lg text-[10px] font-bold">T5</button>
+                            </div>
+                            <select id="bill-type" onchange="calculate()" class="input-field">
+                                <option value="GST INVOICE">GST INVOICE</option>
+                                <option value="ESTIMATE / QUOTE">ESTIMATE / QUOTE</option>
+                            </select>
+                            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-xs font-bold"><span>GST Enable</span><input type="checkbox" id="tax-toggle" checked onchange="calculate()" class="w-5 h-5 accent-indigo-600"></div>
+                            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-xs font-bold"><span>QR Payment</span><input type="checkbox" id="qr-toggle" checked onchange="calculate()" class="w-5 h-5 accent-indigo-600"></div>
+                        </div>
+                        <div class="glass-card p-6 space-y-4">
+                            <h3 class="font-black text-xs uppercase tracking-widest border-b pb-3">2. Details</h3>
+                            <input type="date" id="inv-date-input" class="input-field" oninput="calculate()">
+                            <input type="text" id="cliName" oninput="calculate()" placeholder="Customer Name" class="input-field">
+                            <input type="email" id="cliEmail" oninput="calculate()" placeholder="Email" class="input-field">
+                            <textarea id="cliAddr" oninput="calculate()" placeholder="Address" class="input-field" rows="2"></textarea>
+                            <div class="grid grid-cols-2 gap-3"><input type="text" id="invNo" placeholder="Invoice #" class="input-field"><select id="bill-status" class="input-field" onchange="calculate()"><option value="Paid">Paid</option><option value="Pending">Pending</option></select></div>
+                        </div>
+                        <div class="glass-card p-6"><div class="flex justify-between items-center mb-4"><h3 class="font-black text-xs uppercase">3. Items</h3><button onclick="addBillItem()" class="text-indigo-600 font-black text-xs uppercase">+ ADD</button></div><div id="bill-items-area" class="space-y-3"></div></div>
+                        <button onclick="processAndDownload()" class="w-full bg-slate-900 text-white py-5 rounded-[24px] font-black shadow-2xl active:scale-95 transition">DOWNLOAD BILL</button>
+                    </div>
+
+                    <div class="xl:col-span-8 preview-scroll-container">
+                        <div id="invoice-capture" class="invoice-paper tpl-1">
+                            <div class="flex justify-between border-b pb-8 mb-8" id="tpl-header">
+                                <div class="flex items-center gap-4">
+                                    <div id="inv-logo-display" class="w-20 h-20 bg-slate-50 border rounded-xl flex items-center justify-center overflow-hidden"></div>
+                                    <div class="space-y-1">
+                                        <p class="text-[9px] font-bold text-slate-400 uppercase italic">Billing From:</p>
+                                        <h2 id="view-bizName" class="text-xl font-black uppercase text-slate-900 leading-tight">Zenthous Pro</h2>
+                                        <p id="view-bizAddr" class="text-[9px] text-slate-500 w-64 leading-relaxed"></p>
+                                        <p id="view-bizEmail" class="text-[9px] text-slate-500 font-bold"></p>
+                                        <p id="view-bizGst" class="text-[9px] font-black text-indigo-600 uppercase">GST: --</p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <h1 id="view-bill-title" class="text-3xl font-black text-indigo-600 tracking-tighter italic">GST INVOICE</h1>
+                                    <p class="text-[9px] font-black text-slate-400 uppercase mt-4">Invoice Number</p>
+                                    <h3 id="view-invNo" class="font-black text-lg">#1001</h3>
+                                    <p class="text-[9px] font-black text-slate-400 uppercase mt-2">Date</p>
+                                    <h3 id="view-date" class="font-black text-xs">--/--/--</h3>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-10 mb-10">
+                                <div><p class="text-[9px] font-black text-slate-400 uppercase mb-2">Billed To:</p><h3 id="view-cliName" class="font-black text-slate-900 uppercase text-lg">Customer Name</h3><p id="view-cliEmail" class="text-[10px] text-slate-500 italic mt-1"></p><p id="view-cliAddr" class="text-[10px] text-slate-400 mt-1 w-64 leading-relaxed"></p></div>
+                                <div class="text-right flex flex-col items-end">
+                                    <span id="view-status-badge" class="status-paid">Paid</span>
+                                    <div id="qr-block" class="hidden text-center border p-3 rounded-2xl bg-white shadow-sm mt-4">
+                                        <p class="text-[8px] font-black text-indigo-600 mb-2 uppercase">Scan and Pay</p>
+                                        <img id="qr-img" class="w-24 h-24 mx-auto">
+                                        <p class="text-[8px] text-red-500 font-black mt-2 uppercase">Payment Pending</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <table class="w-full mb-10 overflow-hidden rounded-xl">
+                                <thead class="bg-slate-900 text-white text-[9px] font-black uppercase"><tr><th class="py-4 px-4 text-left w-10">S.No</th><th class="py-4 px-4 text-left">Description</th><th class="py-4 text-center">Qty</th><th class="py-4 text-right">Rate</th><th class="py-4 text-right tax-col">GST</th><th class="py-4 px-4 text-right">Total</th></tr></thead>
+                                <tbody id="view-table-body" class="text-[11px] border-b"></tbody>
+                            </table>
+                            <div class="flex justify-end pt-6"><div class="w-64 space-y-2"><div class="flex justify-between text-[10px] font-bold text-slate-400 uppercase"><span>Subtotal</span><span id="view-subtotal">0.00</span></div><div id="tax-breakdown" class="space-y-1"></div><div class="flex justify-between items-center pt-4 border-t-2 border-slate-900 mt-2 font-black text-slate-900 uppercase"><span>Grand Total</span><span id="view-grandtotal" class="text-2xl text-indigo-600">0.00</span></div></div></div>
+                            <div class="absolute bottom-8 left-0 right-0 text-center text-[9px] font-black text-slate-300 uppercase tracking-widest italic tracking-tighter">Created by zenthous.in</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PAGE: HISTORY, PRODUCTS, PROFILE, ABOUT (SAME AS v13) -->
+            <section id="page-history" class="page-view hidden"><div class="glass-card overflow-x-auto"><table class="w-full text-left min-w-[700px]"><thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest"><tr><th class="px-8 py-5">#Inv</th><th class="px-8 py-5">Customer</th><th class="px-8 py-5">Amount</th><th class="px-8 py-5">Status</th><th class="px-8 py-5 text-right">Action</th></tr></thead><tbody id="history-list" class="divide-y divide-slate-100"></tbody></table></div></section>
+            <section id="page-products" class="page-view hidden"><div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-black uppercase tracking-tight">Stock</h2><button onclick="openProductModal()" class="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold shadow-lg">+ New Item</button></div><div class="glass-card overflow-x-auto"><table class="w-full text-left min-w-[600px]"><thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase"><tr><th class="px-8 py-5 w-10">S.No</th><th class="px-8 py-5">Name</th><th class="px-8 py-5">Price</th><th class="px-8 py-5 text-center">Stock Status</th><th class="px-8 py-5 text-right">Action</th></tr></thead><tbody id="inventory-list" class="divide-y divide-slate-100"></tbody></table></div></section>
+            <section id="page-profile" class="page-view hidden"><div class="max-w-4xl mx-auto glass-card p-6 lg:p-12 space-y-10"><h3 class="font-black text-2xl tracking-tight">Enterprise Branding</h3><div class="flex flex-col sm:flex-row items-center gap-8 bg-slate-50 p-6 rounded-[32px]"><div id="settings-logo-display" class="w-32 h-32 bg-white border-2 border-dashed rounded-[24px] flex items-center justify-center overflow-hidden">Logo</div><div class="text-center sm:text-left"><label class="block text-[10px] font-black text-slate-400 mb-2 uppercase">Brand Logo</label><input type="file" onchange="handleLogoUpload(event)" class="text-xs"></div></div><div class="grid grid-cols-1 md:grid-cols-2 gap-6"><input type="text" id="profName" placeholder="Business Name" class="input-field"><input type="text" id="profGst" placeholder="GSTIN" class="input-field"><input type="email" id="profEmail" placeholder="Official Email" class="input-field"><select id="profCurr" class="input-field"><option value="₹">INR (₹)</option><option value="$">USD ($)</option><option value="€">EUR (€)</option><option value="£">GBP (£)</option></select><input type="text" id="profUpi" placeholder="UPI ID (for payments)" class="input-field md:col-span-2"><textarea id="profAddr" placeholder="Address" class="input-field md:col-span-2" rows="3"></textarea></div><button onclick="saveProfile(true)" class="w-full bg-slate-900 text-white py-4 rounded-3xl font-black">Save Settings</button></div></section>
+            <section id="page-about" class="page-view hidden"><div class="max-w-4xl mx-auto glass-card p-10 text-center space-y-6"><h2 class="text-4xl font-black text-indigo-600">Zenthous Pro</h2><p class="text-slate-500 italic">"Unified professional ecosystem for business management."</p><div class="p-6 bg-slate-50 rounded-3xl border border-dashed"><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Version 14.0.0 Stable Build</p></div></div></section>
+        </div>
+    </div>
+
+    <!-- MODAL: PRODUCT -->
+    <div id="productModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4"><div class="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"><h3 id="modal-title" class="text-2xl font-black mb-6 uppercase tracking-tight">Product Entry</h3><div class="space-y-4"><input type="hidden" id="edit-prod-id"><input type="text" id="prodName" placeholder="Product Name" class="input-field"><div><label class="text-[10px] font-black text-slate-400 uppercase mb-1">Price Per Unit</label><input type="number" id="prodPrice" placeholder="0.00" class="input-field"></div><div><label class="text-[10px] font-black text-slate-400 uppercase mb-1">Stock</label><input type="number" id="prodStock" placeholder="0" class="input-field"></div><select id="prodGst" class="input-field"><option value="0">GST 0%</option><option value="5">GST 5%</option><option value="12">GST 12%</option><option value="18" selected>GST 18%</option><option value="28">GST 28%</option></select><div class="flex gap-4 pt-6"><button onclick="closeProductModal()" class="flex-1 font-bold text-slate-400">Discard</button><button onclick="saveProduct()" class="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black">Confirm</button></div></div></div></div>
+
+    <script>
+        let inventory = JSON.parse(localStorage.getItem('z_inv')) || [];
+        let profile = JSON.parse(localStorage.getItem('z_prof')) || { currency: '₹' };
+        let billHistory = JSON.parse(localStorage.getItem('z_history')) || [];
+        let logoBase64 = localStorage.getItem('z_logo') || null;
+        let editingBillId = null;
+        let charts = { revenue: null, invoice: null, stock: null };
+
+        // PWA LOGIC
+        const manifest = { "name": "Zenthous Pro ERP", "short_name": "Zenthous", "start_url": ".", "display": "standalone", "background_color": "#F8FAFC", "theme_color": "#4F46E5", "icons": [{ "src": "https://cdn-icons-png.flaticon.com/512/1041/1041916.png", "sizes": "512x512", "type": "image/png" }] };
+        document.getElementById('pwa-manifest').setAttribute('href', 'data:application/json;base64,' + btoa(JSON.stringify(manifest)));
+
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('active'); document.getElementById('sidebar-overlay').classList.toggle('active'); }
+
+        function showPage(id, el = null) {
+            document.querySelectorAll('.page-view').forEach(p => p.classList.add('hidden'));
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            document.getElementById('page-' + id).classList.remove('hidden');
+            if(el) el.classList.add('active');
+            document.getElementById('page-title').innerText = id.toUpperCase();
+            document.getElementById('sidebar').classList.remove('active');
+            document.getElementById('sidebar-overlay').classList.remove('active');
+            loadBranding();
+            if(id === 'dashboard') initDashboard();
+            if(id === 'products') renderInventory();
+            if(id === 'profile') loadProfile();
+            if(id === 'history') renderHistory();
+            if(id === 'billing') { if(!editingBillId) clearBillingForm(); calculate(); }
+        }
+
+        // --- ELITE ANALYTICS SYSTEM ---
+        function updateAnalyticsTime(period) {
+            ['week', 'month'].forEach(p => {
+                document.getElementById('filter-'+p).className = p === period ? 
+                "px-4 py-1.5 rounded-lg text-xs font-bold bg-indigo-50 text-indigo-600 border border-indigo-100" : 
+                "px-4 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-400 border";
+            });
+            initDashboard(period);
+        }
+
+        function initDashboard(period = 'week') {
+            const paidBills = billHistory.filter(h => h.status === 'Paid');
+            const cur = profile.currency || "₹";
+            document.getElementById('total-revenue').innerText = cur + paidBills.reduce((a, c) => a + c.amount, 0).toLocaleString();
+            document.getElementById('pending-revenue').innerText = cur + billHistory.filter(h => h.status === 'Pending').reduce((a, c) => a + c.amount, 0).toLocaleString();
+            document.getElementById('total-stock-count').innerText = inventory.reduce((a, c) => a + (parseInt(c.stock) || 0), 0) + " Units";
+            
+            // Revenue Chart
+            const revCtx = document.getElementById('revenueChart').getContext('2d');
+            if(charts.revenue) charts.revenue.destroy();
+            const revGradient = revCtx.createLinearGradient(0, 0, 0, 250);
+            revGradient.addColorStop(0, 'rgba(79, 70, 229, 0.4)');
+            revGradient.addColorStop(1, 'rgba(79, 70, 229, 0)');
+            
+            charts.revenue = new Chart(revCtx, {
+                type: 'line',
+                data: { labels: paidBills.slice(-7).map(h => h.date), datasets: [{ label: 'Revenue', data: paidBills.slice(-7).map(h => h.amount), borderColor: '#4F46E5', backgroundColor: revGradient, fill: true, tension: 0.4, borderWidth: 3 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false } } } }
+            });
+
+            // Invoice Volume Bar
+            const invCtx = document.getElementById('invoiceChart').getContext('2d');
+            if(charts.invoice) charts.invoice.destroy();
+            charts.invoice = new Chart(invCtx, {
+                type: 'bar',
+                data: { labels: billHistory.slice(-7).map(h => h.date), datasets: [{ label: 'Invoices', data: billHistory.slice(-7).map(() => 1), backgroundColor: '#1E293B', borderRadius: 8 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { stepSize: 1 } }, x: { grid: { display: false } } } }
+            });
+
+            // Stock Health Doughnut
+            const stockCtx = document.getElementById('stockChart').getContext('2d');
+            if(charts.stock) charts.stock.destroy();
+            const lowStock = inventory.filter(p => p.stock < 10).length;
+            const healthyStock = inventory.length - lowStock;
+            charts.stock = new Chart(stockCtx, {
+                type: 'doughnut',
+                data: { labels: ['Low Stock Items', 'Healthy Stock'], datasets: [{ data: [lowStock, healthyStock], backgroundColor: ['#EF4444', '#10B981'], borderWidth: 0, hoverOffset: 10 }] },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '80%', plugins: { legend: { position: 'bottom' } } }
+            });
+        }
+
+        // --- REMAINDER CORE LOGIC (GST, PDF, QR, HISTORY) UNTOUCHED ---
+        function calculate() {
+            const taxOn = document.getElementById('tax-toggle').checked;
+            const qrOn = document.getElementById('qr-toggle').checked;
+            const cur = profile.currency || "₹";
+            const tableBody = document.getElementById('view-table-body');
+            const taxBody = document.getElementById('tax-breakdown');
+            const status = document.getElementById('bill-status').value;
+            tableBody.innerHTML = ''; taxBody.innerHTML = '';
+            let sub = 0, tax = 0;
+            document.querySelectorAll('.tax-col').forEach(el => el.style.display = taxOn ? 'table-cell' : 'none');
+            document.getElementById('view-bill-title').innerText = document.getElementById('bill-type').value;
+            document.querySelectorAll('#bill-items-area > div').forEach((row, i) => {
+                const sel = row.querySelector('.item-select');
+                if(!sel.value) return;
+                const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+                const rate = parseFloat(row.querySelector('.item-price').value) || 0;
+                const gst = taxOn ? (parseFloat(row.querySelector('.item-tax').value) || 0) : 0;
+                const rowTotal = qty * rate; sub += rowTotal; tax += (rowTotal * gst) / 100;
+                tableBody.innerHTML += `<tr class="border-b border-slate-50 py-2"><td>${i+1}</td><td class="font-bold uppercase text-[9px]">${sel.options[sel.selectedIndex].text}</td><td>${qty}</td><td>${cur}${rate.toFixed(2)}</td><td class="tax-col" style="display:${taxOn?'table-cell':'none'}">${gst}%</td><td class="font-black text-right">${cur}${(rowTotal + (rowTotal*gst/100)).toFixed(2)}</td></tr>`;
+            });
+            const total = sub + tax;
+            document.getElementById('view-subtotal').innerText = cur + sub.toFixed(2);
+            document.getElementById('view-grandtotal').innerText = cur + total.toFixed(2);
+            if(taxOn && tax > 0) taxBody.innerHTML = `<div class="flex justify-between text-[8px] font-black text-slate-400"><span>GST Total</span><span>${cur}${tax.toFixed(2)}</span></div>`;
+            const rawDate = document.getElementById('inv-date-input').value;
+            document.getElementById('view-date').innerText = rawDate ? new Date(rawDate).toLocaleDateString() : new Date().toLocaleDateString();
+            if(qrOn && profile.upi && total > 0 && status === 'Pending') {
+                document.getElementById('qr-block').classList.remove('hidden');
+                document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=upi://pay?pa=${profile.upi}&pn=User&am=${total.toFixed(2)}&cu=INR`;
+            } else { document.getElementById('qr-block').classList.add('hidden'); }
+            document.getElementById('pending-label').classList.toggle('hidden', status === 'Paid');
+            document.getElementById('view-cliName').innerText = document.getElementById('cliName').value || "Customer Name";
+            document.getElementById('view-cliEmail').innerText = document.getElementById('cliEmail').value;
+            document.getElementById('view-cliAddr').innerText = document.getElementById('cliAddr').value;
+            document.getElementById('view-invNo').innerText = "#" + (document.getElementById('invNo').value || "1001");
+            const badge = document.getElementById('view-status-badge');
+            badge.innerText = status; badge.className = status === 'Paid' ? 'status-paid' : 'status-pending';
+        }
+
+        function loadBranding() {
+            const logo = localStorage.getItem('z_logo');
+            const biz = profile.name || "Zenthous Pro";
+            document.getElementById('top-biz-name').innerText = biz;
+            document.getElementById('view-bizName').innerText = biz;
+            document.getElementById('view-bizAddr').innerText = profile.addr || "";
+            document.getElementById('view-bizEmail').innerText = profile.email || "";
+            document.getElementById('view-bizGst').innerText = "GST: " + (profile.gst || "--");
+            const logoAreas = [document.getElementById('top-logo-display'), document.getElementById('settings-logo-display'), document.getElementById('inv-logo-display')];
+            logoAreas.forEach(a => { if(a) a.innerHTML = logo ? `<img src="${logo}" class="w-full h-full object-contain">` : `<i class="fas fa-image text-slate-300"></i>`; });
+        }
+
+        function processAndDownload() {
+            const amount = parseFloat(document.getElementById('view-grandtotal').innerText.replace(/[^\d.]/g, ''));
+            if(amount <= 0) return alert('Bill is empty');
+            const items = Array.from(document.querySelectorAll('#bill-items-area > div')).map(row => ({ pId: row.querySelector('.item-db-id').value, qty: row.querySelector('.item-qty').value, price: row.querySelector('.item-price').value, tax: row.querySelector('.item-tax').value }));
+            const bill = { id: editingBillId || Date.now(), customer: document.getElementById('cliName').value, email: document.getElementById('cliEmail').value, address: document.getElementById('cliAddr').value, invNo: document.getElementById('invNo').value, amount: amount, status: document.getElementById('bill-status').value, date: document.getElementById('view-date').innerText, items };
+            if(editingBillId) { const idx = billHistory.findIndex(b => b.id === editingBillId); billHistory[idx] = bill; }
+            else { billHistory.push(bill); bill.items.forEach(it => { const i = inventory.findIndex(p => p.id == it.pId); if(i !== -1) inventory[i].stock -= it.qty; }); }
+            localStorage.setItem('z_history', JSON.stringify(billHistory)); localStorage.setItem('z_inv', JSON.stringify(inventory));
+            editingBillId = null;
+            html2pdf().set({ margin: 0, filename: `Inv_${bill.invNo}.pdf`, html2canvas: { scale: 3, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } }).from(document.getElementById('invoice-capture')).save();
+            showPage('dashboard');
+        }
+
+        function renderHistory() { const b = document.getElementById('history-list'); const c = profile.currency || "₹"; b.innerHTML = billHistory.map(h => `<tr class="text-xs hover:bg-slate-50"><td class="px-8 py-5 font-black uppercase">#${h.invNo}</td><td class="px-8 py-5 font-medium text-slate-800">${h.customer}</td><td class="px-8 py-5 font-bold">${c}${h.amount.toLocaleString()}</td><td class="px-8 py-5"><span class="${h.status === 'Paid' ? 'status-paid' : 'status-pending'} cursor-pointer" onclick="toggleStatus(${h.id})">${h.status}</span></td><td class="px-8 py-5 text-right"><button onclick="editBill(${h.id})" class="text-indigo-600 font-bold mr-2"><i class="fas fa-edit"></i> Edit</button></td></tr>`).reverse().join(''); }
+        function toggleStatus(id) { const b = billHistory.find(x => x.id === id); b.status = b.status === 'Paid' ? 'Pending' : 'Paid'; localStorage.setItem('z_history', JSON.stringify(billHistory)); renderHistory(); initDashboard(); }
+        function editBill(id) { const b = billHistory.find(x => x.id === id); editingBillId = id; showPage('billing'); document.getElementById('cliName').value = b.customer; document.getElementById('cliEmail').value = b.email; document.getElementById('cliAddr').value = b.address; document.getElementById('invNo').value = b.invNo; document.getElementById('bill-status').value = b.status; document.getElementById('bill-items-area').innerHTML = ''; b.items.forEach(it => addBillItem(it)); }
+        function clearBillingForm() { editingBillId = null; document.getElementById('cliName').value = ''; document.getElementById('cliEmail').value = ''; document.getElementById('cliAddr').value = ''; document.getElementById('bill-items-area').innerHTML = ''; document.getElementById('invNo').value = billHistory.length + 1001; document.getElementById('inv-date-input').valueAsDate = new Date(); }
+        function renderInventory() { const b = document.getElementById('inventory-list'); const c = profile.currency || "₹"; b.innerHTML = inventory.map((p, i) => `<tr class="text-xs hover:bg-slate-50"><td class="px-8 py-4 font-bold text-slate-400">${i+1}</td><td class="px-8 py-4 font-black uppercase text-slate-800">${p.name}</td><td class="px-8 py-4 font-bold">${c}${p.price}</td><td class="px-8 py-4 ${p.stock < 5 ? 'text-red-500 font-black' : ''}">${p.stock} Units</td><td class="px-8 py-4 text-right"><button onclick="openProductModal(${p.id})" class="text-indigo-600 mr-4"><i class="fas fa-edit"></i></button><button onclick="deleteProduct(${p.id})"><i class="fas fa-trash-alt text-slate-200"></i></button></td></tr>`).join(''); }
+        function openProductModal(id = null) { document.getElementById('productModal').classList.remove('hidden'); if(id) { const p = inventory.find(x => x.id === id); document.getElementById('edit-prod-id').value = p.id; document.getElementById('prodName').value = p.name; document.getElementById('prodPrice').value = p.price; document.getElementById('prodStock').value = p.stock; document.getElementById('prodGst').value = p.gst; } else { document.getElementById('edit-prod-id').value = ''; document.getElementById('prodName').value = ''; document.getElementById('prodPrice').value = ''; document.getElementById('prodStock').value = '0'; } }
+        function saveProduct() { const id = document.getElementById('edit-prod-id').value; const pData = { id: id ? parseInt(id) : Date.now(), name: document.getElementById('prodName').value, price: parseFloat(document.getElementById('prodPrice').value) || 0, stock: parseInt(document.getElementById('prodStock').value) || 0, gst: parseFloat(document.getElementById('prodGst').value) }; if(!pData.name) return; if(id) { const idx = inventory.findIndex(x => x.id == id); inventory[idx] = pData; } else { inventory.push(pData); } localStorage.setItem('z_inv', JSON.stringify(inventory)); closeProductModal(); renderInventory(); }
+        function closeProductModal() { document.getElementById('productModal').classList.add('hidden'); }
+        function deleteProduct(id) { inventory = inventory.filter(x => x.id !== id); localStorage.setItem('z_inv', JSON.stringify(inventory)); renderInventory(); }
+        function loadProfile() { document.getElementById('profName').value = profile.name || ''; document.getElementById('profAddr').value = profile.addr || ''; document.getElementById('profGst').value = profile.gst || ''; document.getElementById('profEmail').value = profile.email || ''; document.getElementById('profUpi').value = profile.upi || ''; document.getElementById('profCurr').value = profile.currency || '₹'; loadBranding(); }
+        function saveProfile(n) { profile = { name: document.getElementById('profName').value, addr: document.getElementById('profAddr').value, gst: document.getElementById('profGst').value, upi: document.getElementById('profUpi').value, email: document.getElementById('profEmail').value, currency: document.getElementById('profCurr').value }; localStorage.setItem('z_prof', JSON.stringify(profile)); if(n) alert('Profile Saved!'); loadProfile(); }
+        function handleLogoUpload(event) { const r = new FileReader(); r.onload = (e) => { localStorage.setItem('z_logo', e.target.result); loadBranding(); }; r.readAsDataURL(event.target.files[0]); }
+        function addBillItem(data = null) { const id = Date.now() + Math.random(); const opts = inventory.map(p => `<option value="${p.id}" ${data && data.pId == p.id ? 'selected' : ''}>${p.name}</option>`).join(''); const html = `<div id="row-${id}" class="glass-card p-4 relative group border-slate-100"><button onclick="this.parentElement.remove(); calculate();" class="absolute -right-1 -top-1 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] opacity-0 group-hover:opacity-100 transition"><i class="fas fa-times"></i></button><select onchange="fillRow(this, ${id})" class="item-select input-field mb-2 font-bold"><option value="">-- Choose Item --</option>${opts}</select><div class="grid grid-cols-2 gap-2"><input type="number" class="item-qty input-field" value="${data ? data.qty : 1}" oninput="calculate()"><input type="number" class="item-tax input-field" value="${data ? data.tax : 0}" readonly><input type="hidden" class="item-price" value="${data ? data.price : 0}"><input type="hidden" class="item-db-id" value="${data ? data.pId : ''}"></div></div>`; document.getElementById('bill-items-area').insertAdjacentHTML('beforeend', html); if(data) calculate(); }
+        function fillRow(sel, id) { const p = inventory.find(x => x.id == sel.value); if(p) { const r = document.getElementById('row-'+id); r.querySelector('.item-tax').value = p.gst; r.querySelector('.item-price').value = p.price; r.querySelector('.item-db-id').value = p.id; calculate(); } }
+        function setReportDates() { const days = document.getElementById('report-preset').value; const end = new Date(); const start = new Date(); start.setDate(end.getDate() - days); document.getElementById('report-from').value = start.toISOString().split('T')[0]; document.getElementById('report-to').value = end.toISOString().split('T')[0]; }
+        function downloadReport() { const from = document.getElementById('report-from').value; const to = document.getElementById('report-to').value; const filtered = billHistory.filter(h => { const d = h.date.split('/').reverse().join('-'); return d >= from && d <= to; }); let csv = 'Inv No,Customer,Amount,Status,Date\n'; filtered.forEach(h => csv += `${h.invNo},${h.customer},${h.amount},${h.status},${h.date}\n`); const blob = new Blob([csv], { type: 'text/csv' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'Report.csv'; a.click(); }
+        function setTemplate(n) { document.getElementById('invoice-capture').className = `invoice-paper tpl-${n}`; for(let i=1; i<=5; i++) document.getElementById(`t-btn-${i}`).classList.toggle('bg-indigo-600', i==n); for(let i=1; i<=5; i++) document.getElementById(`t-btn-${i}`).classList.toggle('text-white', i==n); }
+
+        window.onload = () => { document.getElementById('inv-date-input').valueAsDate = new Date(); showPage('dashboard'); };
+    </script>
+</body>
+</html>
